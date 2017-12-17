@@ -10,6 +10,7 @@
 
 #include "pr_pkg.h"
 #include <pc_JSON.h>
+#include "pomelo.h"
 
 typedef struct tr_uv_tcp_transport_s tr_uv_tcp_transport_t;
 

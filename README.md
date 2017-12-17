@@ -53,3 +53,12 @@ configure jpomelo compilation for java
 - -Dbuild_cspomelo=[true|false], `false` by default.
 
 configure cspomelo compilation for c#
+
+For Windows system, clone gyp from : https://github.com/bnoordhuis/gyp
+new build folder,
+put byp on build folder
+
+Start CMD window, cd to libpomelo2 folder, run following command:
+build\gyp\gyp.bat --depth=. pomelo.gyp -Dlibrary=static_library -DTO=pc -Duse_sys_openssl=false
+
+
