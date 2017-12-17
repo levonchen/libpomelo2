@@ -12,6 +12,7 @@
 
 #include "pr_msg.h"
 #include "tr_uv_tcp_i.h"
+#include "pc_pomelo_i.h"
 
 #define PC_MSG_FLAG_BYTES 1
 #define PC_MSG_ROUTE_LEN_BYTES 1
@@ -165,7 +166,30 @@ static pc__msg_raw_t *pc_msg_decode_to_raw(const pc_buf_t* buf)
     return msg;
 }
 
-pc_msg_t pc_default_msg_decode(const pc_JSON* code2route, const pc_JSON* server_protos, const pc_buf_t* buf)
+const char* get_router_by_req_id(pc_client_t* client, unsigned int req_id)
+{
+    
+    
+    QUEUE* q;
+    pc_request_t* req;
+    pc_request_t* target;
+    const char* route;
+    route = NULL;
+    pc_mutex_lock(&client->req_mutex);
+    QUEUE_FOREACH(q, &client->req_queue) {
+        req= (pc_request_t* )QUEUE_DATA(q, pc_common_req_t, queue);
+        if (req->req_id == req_id) {
+            route = req->base.route;
+            break;
+        }
+    }
+    pc_mutex_unlock(&client->req_mutex);
+
+    return route;
+
+}
+
+pc_msg_t pc_default_msg_decode(const pc_JSON* code2route, const pc_JSON* server_protos, const pc_buf_t* buf, pc_client_t* client)
 {
     const char *route_str = NULL;
     const char *origin_route = NULL;
@@ -213,8 +237,19 @@ pc_msg_t pc_default_msg_decode(const pc_JSON* code2route, const pc_JSON* server_
 
         msg.route = route_str;
     } else {
-        /* FIXME: for resp, we can not get route here, so just set it to NULL */
-        msg.route = NULL;
+        /* FIXME: for resp, we can not get route here, so just set it to NULL */        
+		//msg.route = NULL;
+        
+        origin_route = get_router_by_req_id(client, msg.id);
+        if ( ! origin_route) {
+            msg.id = PC_INVALID_REQ_ID;
+            pc_lib_free(raw_msg);
+            return msg;
+        }
+        
+        route_str = (char* )pc_lib_malloc(strlen(origin_route) + 1);
+        strcpy((char* )route_str, origin_route);
+        msg.route = route_str;
     }
 
     if (PC_MSG_HAS_ROUTE(raw_msg->type) &&  !msg.route) {
@@ -489,5 +524,5 @@ pc_msg_t pr_default_msg_decoder(tr_uv_tcp_transport_t* tt, const uv_buf_t* buf)
     pb.base = buf->base;
     pb.len = buf->len;
 
-    return pc_default_msg_decode(tt->code_to_route, tt->server_protos, &pb);
+    return pc_default_msg_decode(tt->code_to_route, tt->server_protos, &pb, tt->client);
 }
